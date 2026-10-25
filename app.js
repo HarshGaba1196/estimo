@@ -475,6 +475,7 @@ function seatOrder() {
 function renderSeats() {
   const seats = $('#seats');
   const players = seatOrder();
+  seats.classList.toggle('compact', players.length > 12);
   const stats = state.revealed ? computeStats(state) : null;
   const outlierIds = new Set(stats?.outliers?.map((p) => p.id) ?? []);
 
@@ -608,7 +609,7 @@ function renderResults() {
         <div class="dist-row ${d.voters.length === s.maxGroup && !SPECIAL.includes(d.card) ? 'top' : ''}">
           <div class="dist-card">${esc(d.card)}</div>
           <div class="dist-bar"><i style="width:${(d.voters.length / s.voters.length) * 100}%"></i></div>
-          <div class="dist-voters">${d.voters.map((p) => `<span title="${esc(p.name)}">${p.avatar}</span>`).join('')}</div>
+          <div class="dist-voters" title="${esc(d.voters.map((p) => p.name).join(', '))}">${d.voters.slice(0, 4).map((p) => `<span>${p.avatar}</span>`).join('')}${d.voters.length > 4 ? `<span class="more">+${d.voters.length - 4}</span>` : ''}</div>
         </div>`).join('')}
     </div>` : '<p class="muted">No one voted this round.</p>';
 
@@ -630,7 +631,7 @@ function renderResults() {
 
   el.innerHTML = `
     <div class="results-head"><h3>Results</h3>${verdict}<span class="spacer"></span><span class="muted">Round ${state.round}</span></div>
-    ${tiles}${dist}${insight}${specialNote}${save}`;
+    ${tiles}${save}${dist}${insight}${specialNote}`;
 }
 
 function renderHand() {

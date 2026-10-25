@@ -340,7 +340,7 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 @keyframes think { 50% { border-color: var(--accent); } }
 
 /* Results */
-.results { padding: 16px; display: grid; gap: 12px; position: sticky; top: 0; max-height: calc(100dvh - 250px); overflow-y: auto; }
+.results { padding: 16px; display: grid; gap: 12px; position: sticky; top: 0; max-height: calc(100dvh - 320px); overflow-y: auto; }
 .results.live { animation: rise .4s ease; }
 .results-wait { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 28px 8px; color: var(--muted); font-size: 14px; }
 .results-wait .icon { font-size: 34px; filter: grayscale(.2); }
@@ -374,7 +374,7 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 .dist-voters { display: flex; gap: 2px; font-size: 15px; justify-content: flex-end; min-width: 60px; }
 .dist-voters span { cursor: default; }
 .insight { font-size: 13px; color: var(--text-2); padding: 10px 14px; border-radius: 10px; background: var(--surface-2); border-left: 3px solid var(--warn); }
-.save-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-top: 1px solid var(--border); padding-top: 12px; }
+.save-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
 .save-row .lbl { flex-basis: 100%; }
 .save-row .lbl { font-weight: 600; font-size: 14px; margin-right: 4px; }
 .save-chip {
@@ -514,3 +514,13 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 @keyframes indeterminate { from { left: -40%; } to { left: 100%; } }
 .load-track { width: 220px; height: 6px; border-radius: 6px; background: var(--surface-3); overflow: hidden; }
 .load-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--felt); transition: width .5s ease; }
+
+.dist-voters .more { font-size: 12px; font-weight: 700; color: var(--muted); align-self: center; margin-left: 2px; }
+
+/* Big teams: smaller cards so 20+ people fit without scrolling */
+.seats.compact { gap: 12px 10px; }
+.seats.compact .seat { gap: 6px; max-width: 140px; }
+.seats.compact .seat-card { width: 38px; height: 54px; }
+.seats.compact .seat-card .face { font-size: 15px; }
+.seats.compact .seat-name { font-size: 12px; padding: 2px 8px 2px 2px; }
+.seats.compact .seat-name .av { width: 20px; height: 20px; font-size: 13px; }

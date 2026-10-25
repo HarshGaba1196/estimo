@@ -51,16 +51,16 @@ async function unseal(key, buf) {
   }
 }
 
-function connectBroker(url, clientId, will) {
+function connectBroker(url, clientId, will, timeoutMs = 9000) {
   return new Promise((resolve, reject) => {
     let c;
     try {
-      c = window.mqtt.connect(url, { clientId, keepalive: 20, clean: true, reconnectPeriod: 2000, connectTimeout: 8000, will, protocolVersion: 4 });
+      c = window.mqtt.connect(url, { clientId, keepalive: 20, clean: true, reconnectPeriod: 2000, connectTimeout: timeoutMs - 1000, will, protocolVersion: 4 });
     } catch {
       reject(netErr('broker'));
       return;
     }
-    const t = setTimeout(() => { try { c.end(true); } catch {} reject(netErr('broker')); }, 9000);
+    const t = setTimeout(() => { try { c.end(true); } catch {} reject(netErr('broker')); }, timeoutMs);
     c.once('connect', () => { clearTimeout(t); resolve(c); });
     c.on('error', () => {});
   });
@@ -357,14 +357,19 @@ export async function openRoom({ code, create = null, broker = 0, onState, onEve
   }
 
   // ---------- connect ----------
-  const order = [broker, ...BROKERS.keys()].filter((v, i, a) => BROKERS[v] && a.indexOf(v) === i);
+  // The room lives on one broker. Public brokers sometimes stall a connection when many people
+  // join at once from one network (an office), so try the room's broker twice before falling back.
+  const unique = [broker, ...BROKERS.keys()].filter((v, i, a) => BROKERS[v] && a.indexOf(v) === i);
+  const order = [unique[0], ...unique];
   const backup = create ? null : LS.get(`estimo:backup:${code}`);
   let connectedAny = false;
   for (const [n, bi] of order.entries()) {
+    if (n === 1 && connectedAny) continue; // reached the room's broker but the room wasn't there
     let c;
     onProgress(n === 0 ? 'connecting' : 'retrying');
+    if (n === 1) await sleep(300 + Math.random() * 900); // spread out a burst of retries
     try {
-      c = await connectBroker(BROKERS[bi], clientId, will);
+      c = await connectBroker(BROKERS[bi], clientId, will, n === 0 ? 6000 : 9000);
     } catch {
       continue;
     }
@@ -377,7 +382,9 @@ export async function openRoom({ code, create = null, broker = 0, onState, onEve
     // Retained state and presences arrive right after subscribing. Joiners stop waiting as soon as
     // they have both; creators only need a short check that the code is unused.
     const t0 = Date.now();
-    const maxWait = create ? 600 : 1500;
+    // Busy public brokers can take a few seconds to hand over retained messages, so joiners
+    // allow up to 3.5s here (they still move on the moment the room shows up).
+    const maxWait = create ? 600 : 3500;
     while (Date.now() - t0 < maxWait) {
       await sleep(100);
       await recvQ;
