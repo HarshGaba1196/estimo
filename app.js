@@ -412,7 +412,7 @@ function renderHeader() {
   $('#room-code').textContent = state.id;
   $('#settings-btn').hidden = !isHost();
   const m = me();
-  $('#me-btn').innerHTML = m ? `<span class="av">${m.avatar}</span><span class="nm">${esc(m.name)}</span>${isHost() ? '<span class="role-tag">Facilitator</span>' : ''}` : '';
+  $('#me-btn').innerHTML = m ? `<span class="av">${m.avatar}</span><span class="nm">${esc(m.name)}</span>${isHost() ? '<span class="role-tag">Facilitator</span>' : ''}${m.role === 'observer' ? '<span class="role-tag observer">Observer</span>' : ''}` : '';
   tickTimer();
 }
 
@@ -489,8 +489,8 @@ function renderSeats() {
       el.dataset.id = p.id;
       el.innerHTML = `
         <div class="seat-card"><div class="flip"><div class="back"></div><div class="face"></div></div></div>
-        <button class="seat-name" type="button"><span class="av"></span><span class="nm"></span><span class="badge"></span></button>
-        <span class="role-tag" hidden>Facilitator</span>`;
+        <button class="seat-name" type="button"><span class="av"></span><span class="nm"></span></button>
+        <span class="role-tags"><span class="role-tag host-tag" hidden>Facilitator</span><span class="role-tag observer" hidden>Observer</span></span>`;
     }
     existing.delete(p.id);
     seats.append(el); // keeps DOM order in sync with seat order
@@ -510,8 +510,8 @@ function renderSeats() {
     $('.face', el).textContent = p.vote ?? '';
     $('.av', el).textContent = p.avatar;
     $('.nm', el).textContent = p.name;
-    $('.badge', el).textContent = p.role === 'observer' ? '👀' : '';
-    $('.role-tag', el).hidden = p.id !== state.hostId;
+    $('.host-tag', el).hidden = p.id !== state.hostId;
+    $('.role-tag.observer', el).hidden = p.role !== 'observer';
     el.classList.toggle('host', p.id === state.hostId);
     $('.seat-name', el).title = `${p.name}${p.id === state.hostId ? ' (facilitator)' : ''}${p.role === 'observer' ? ' · observer' : ''}${p.connected ? '' : ' · offline'}`;
   });

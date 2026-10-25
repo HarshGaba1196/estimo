@@ -335,7 +335,6 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 .seat.me .seat-name { border-color: var(--accent); background: var(--accent-soft); }
 .seat.offline { opacity: .45; }
 .seat.offline .seat-name .av { filter: grayscale(1); }
-.seat .badge { font-size: 11px; line-height: 1; }
 .seat.thinking:not(.voted):not(.revealed) .seat-card .back { animation: think 1.6s ease-in-out infinite; }
 @keyframes think { 50% { border-color: var(--accent); } }
 
@@ -531,6 +530,9 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
   letter-spacing: .06em; text-transform: uppercase; line-height: 16px; white-space: nowrap;
   background: var(--accent); color: var(--accent-text);
 }
-.seat .role-tag { margin-top: -2px; }
+.role-tag.observer { background: var(--surface-3); color: var(--text-2); }
+.role-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: -2px; }
+.role-tags:not(:has(.role-tag:not([hidden]))) { display: none; }
+.me-btn .role-tag + .role-tag { margin-left: 4px; }
 .seats.compact .role-tag { font-size: 9px; padding: 0 6px; }
 @media (max-width: 640px) { .me-btn .role-tag { display: none; } }
