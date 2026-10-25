@@ -16,7 +16,7 @@ One tab in each room acts as the **hub**: it applies the room rules (`room.js`) 
 
 ## Features
 
-- **Poker table** — players sit around a table, cards drop in as they vote and flip over on reveal. Phones and big teams get a grid layout.
+- **Live board** — a status bar with vote progress and controls, players in a grid whose cards drop in as they vote and flip over on reveal, and a results panel that's always on screen.
 - **Decks** — Fibonacci, Modified Fibonacci, T-shirt, Powers of 2, Hours, or a custom deck. Every deck has `?` and `☕` cards.
 - **Results** — average, median, agreement %, a suggested card, a vote distribution chart, highlighted outliers, and confetti when everyone agrees.
 - **Story backlog** — paste many stories at once (one per line). Reorder, rename, re-estimate. Saving an estimate moves to the next story. Running point total and CSV export.
