@@ -412,7 +412,7 @@ function renderHeader() {
   $('#room-code').textContent = state.id;
   $('#settings-btn').hidden = !isHost();
   const m = me();
-  $('#me-btn').innerHTML = m ? `<span class="av">${m.avatar}</span><span class="nm">${esc(m.name)}</span>${isHost() ? ' <span title="Facilitator">👑</span>' : ''}` : '';
+  $('#me-btn').innerHTML = m ? `<span class="av">${m.avatar}</span><span class="nm">${esc(m.name)}</span>${isHost() ? '<span class="role-tag">Facilitator</span>' : ''}` : '';
   tickTimer();
 }
 
@@ -489,7 +489,8 @@ function renderSeats() {
       el.dataset.id = p.id;
       el.innerHTML = `
         <div class="seat-card"><div class="flip"><div class="back"></div><div class="face"></div></div></div>
-        <button class="seat-name" type="button"><span class="av"></span><span class="nm"></span><span class="badge"></span></button>`;
+        <button class="seat-name" type="button"><span class="av"></span><span class="nm"></span><span class="badge"></span></button>
+        <span class="role-tag" hidden>Facilitator</span>`;
     }
     existing.delete(p.id);
     seats.append(el); // keeps DOM order in sync with seat order
@@ -509,7 +510,9 @@ function renderSeats() {
     $('.face', el).textContent = p.vote ?? '';
     $('.av', el).textContent = p.avatar;
     $('.nm', el).textContent = p.name;
-    $('.badge', el).textContent = `${p.id === state.hostId ? '👑' : ''}${p.role === 'observer' ? '👀' : ''}`;
+    $('.badge', el).textContent = p.role === 'observer' ? '👀' : '';
+    $('.role-tag', el).hidden = p.id !== state.hostId;
+    el.classList.toggle('host', p.id === state.hostId);
     $('.seat-name', el).title = `${p.name}${p.id === state.hostId ? ' (facilitator)' : ''}${p.role === 'observer' ? ' · observer' : ''}${p.connected ? '' : ' · offline'}`;
   });
   existing.forEach((el) => el.remove());
@@ -787,7 +790,7 @@ function openSeatMenu(seatEl) {
   if (!p) return;
   const hostMenu = isHost()
     ? `<div class="menu">
-        <button data-op="host">👑 Make facilitator</button>
+        <button data-op="host">Make facilitator</button>
         <button data-op="kick" class="danger">Remove from room</button>
       </div>`
     : '';

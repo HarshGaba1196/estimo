@@ -524,3 +524,13 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 .seats.compact .seat-card .face { font-size: 15px; }
 .seats.compact .seat-name { font-size: 12px; padding: 2px 8px 2px 2px; }
 .seats.compact .seat-name .av { width: 20px; height: 20px; font-size: 13px; }
+
+/* Facilitator label (under the seat name and next to your name in the top bar) */
+.role-tag {
+  display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; line-height: 16px; white-space: nowrap;
+  background: var(--accent); color: var(--accent-text);
+}
+.seat .role-tag { margin-top: -2px; }
+.seats.compact .role-tag { font-size: 9px; padding: 0 6px; }
+@media (max-width: 640px) { .me-btn .role-tag { display: none; } }
