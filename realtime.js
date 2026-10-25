@@ -72,7 +72,7 @@ function connectBroker(url, clientId, will) {
  * Resolves with a controller once the room state is known.
  * Errors: 'lib' | 'crypto' | 'broker' | 'notfound' | 'taken'.
  */
-export async function openRoom({ code, create = null, broker = 0, onState, onEvent, onStatus }) {
+export async function openRoom({ code, create = null, broker = 0, onState, onEvent, onStatus, onProgress = () => {} }) {
   if (typeof window.mqtt === 'undefined') throw netErr('lib');
   if (!window.crypto?.subtle) throw netErr('crypto');
   const { base, key } = await roomKeys(code);
@@ -362,6 +362,7 @@ export async function openRoom({ code, create = null, broker = 0, onState, onEve
   let connectedAny = false;
   for (const [n, bi] of order.entries()) {
     let c;
+    onProgress(n === 0 ? 'connecting' : 'retrying');
     try {
       c = await connectBroker(BROKERS[bi], clientId, will);
     } catch {
@@ -372,8 +373,16 @@ export async function openRoom({ code, create = null, broker = 0, onState, onEve
     brokerIndex = bi;
     c.on('message', onMessage);
     await new Promise((r) => c.subscribe([T.state, T.act, T.ev, `${T.pres}+`], { qos: 1 }, () => r()));
-    await sleep(1500);
-    await recvQ;
+    onProgress(create ? 'creating' : 'searching');
+    // Retained state and presences arrive right after subscribing. Joiners stop waiting as soon as
+    // they have both; creators only need a short check that the code is unused.
+    const t0 = Date.now();
+    const maxWait = create ? 600 : 1500;
+    while (Date.now() - t0 < maxWait) {
+      await sleep(100);
+      await recvQ;
+      if (!create && lastPacket && hubClient) break;
+    }
     if (create) {
       if (lastPacket || presences.size) {
         c.end(true);
@@ -409,6 +418,7 @@ export async function openRoom({ code, create = null, broker = 0, onState, onEve
     if (lastPacket) deliver(lastPacket);
     if (hubClient) {
       // Make sure the hub is really there (its presence could be stale).
+      onProgress('syncing');
       const asked = Date.now();
       publish(T.act, { f: clientId, pid, t: 'hello', d: {} }, { qos: 1 });
       for (let i = 0; i < 40 && !(lastPacketAt > asked && lastPacket?.hub === hubClient) && !isHub; i++) await sleep(100);

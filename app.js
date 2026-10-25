@@ -22,8 +22,27 @@ let selectedHandIndex = -1;
 let resultsKey = '';
 
 // ---------------- Actions ----------------
+// Actions that never produce a new room state, so there's nothing to wait for.
+const NO_REPLY = new Set(['react', 'nudge']);
+let busyShowTimer = null;
+let busySafetyTimer = null;
+
+// Thin bar at the top of the page while we wait for the room to answer.
+function setBusy(on) {
+  clearTimeout(busyShowTimer);
+  clearTimeout(busySafetyTimer);
+  if (on) {
+    busyShowTimer = setTimeout(() => { $('#progress-bar').hidden = false; }, 120);
+    busySafetyTimer = setTimeout(() => setBusy(false), 6000);
+  } else {
+    $('#progress-bar').hidden = true;
+  }
+}
+
 function action(type, payload = {}) {
-  rt?.act(type, payload);
+  if (!rt) return;
+  if (!NO_REPLY.has(type)) setBusy(true);
+  rt.act(type, payload);
 }
 
 // ---------------- Toasts / helpers ----------------
@@ -232,9 +251,26 @@ const NET_ERRORS = {
   taken: 'Room code clash. Please try again.',
 };
 
-function showLoading(text) {
+const LOAD_STEPS = {
+  connecting: ['Connecting…', 20],
+  retrying: ['Trying a backup server…', 35],
+  creating: ['Setting up your room…', 70],
+  searching: ['Looking for the room…', 55],
+  syncing: ['Syncing with your team…', 85],
+};
+
+function showLoading(step) {
+  const [text, pct] = LOAD_STEPS[step] ?? [step, 10];
   $('#loading-text').textContent = text;
+  $('#load-fill').style.width = `${pct}%`;
   $('#loading').hidden = false;
+  $('#progress-bar').hidden = false;
+}
+
+function hideLoading() {
+  $('#load-fill').style.width = '100%';
+  $('#loading').hidden = true;
+  $('#progress-bar').hidden = true;
 }
 
 async function enterRoom(id, { create = null, profile = null } = {}) {
@@ -247,17 +283,17 @@ async function enterRoom(id, { create = null, profile = null } = {}) {
   $('#landing').hidden = true;
   $('#room').hidden = false;
   $('#room').classList.remove('ready');
-  showLoading(create ? 'Creating your room…' : 'Finding the room…');
+  showLoading('connecting');
   const broker = Number(new URLSearchParams(location.search).get('b')) || 0;
   try {
-    rt = await openRoom({ code: id, create, broker, onState, onEvent, onStatus });
+    rt = await openRoom({ code: id, create, broker, onState, onEvent, onStatus, onProgress: showLoading });
   } catch (err) {
-    $('#loading').hidden = true;
+    hideLoading();
     toast(NET_ERRORS[err.type] ?? err.message, 'error');
     history.replaceState({}, '', location.pathname);
     return showLanding();
   }
-  $('#loading').hidden = true;
+  hideLoading();
   history.replaceState({}, '', roomUrl(id).slice(location.origin.length));
 
   const view = rt.view();
@@ -270,11 +306,12 @@ async function enterRoom(id, { create = null, profile = null } = {}) {
   const pid = stored?.pid ?? uid();
   LS.set(pidKey(id), { pid });
   rt.setPid(pid);
-  rt.act('join', p);
+  action('join', p);
 }
 
 function onState(view) {
   $('#conn-banner').hidden = true;
+  setBusy(false);
   prevState = state;
   state = view;
   clockOffset = state.serverNow - Date.now();
@@ -284,7 +321,9 @@ function onState(view) {
 function onEvent(type, data) {
   switch (type) {
     case 'toast': return toast(data.text);
-    case 'error': return toast(data.text, 'error');
+    case 'error':
+      setBusy(false);
+      return toast(data.text, 'error');
     case 'reaction': return flyReaction(data);
     case 'nudge': {
       toast(`👋 ${data.from} is waiting for your vote`);

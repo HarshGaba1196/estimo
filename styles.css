@@ -300,8 +300,8 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 
 /* Players */
 .seats-wrap { padding: 20px 16px; }
-.seats { display: grid; grid-template-columns: repeat(auto-fill, 100px); justify-content: center; gap: 18px 10px; }
-.seat { display: grid; justify-items: center; gap: 8px; min-width: 0; }
+.seats { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 14px; }
+.seat { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; min-width: 72px; max-width: 170px; }
 .seat-card {
   width: 54px; height: 76px; perspective: 600px; position: relative;
 }
@@ -331,7 +331,7 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 }
 .seat-name:hover { border-color: var(--accent); }
 .seat-name .av { font-size: 15px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); flex: none; }
-.seat-name .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seat-name .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .seat.me .seat-name { border-color: var(--accent); background: var(--accent-soft); }
 .seat.offline { opacity: .45; }
 .seat.offline .seat-name .av { filter: grayscale(1); }
@@ -504,3 +504,13 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 .loading { position: fixed; inset: 0; z-index: 85; display: grid; place-content: center; justify-items: center; gap: 14px; background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(4px); font-weight: 600; color: var(--text-2); }
 .spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Loading */
+.progress-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 95; overflow: hidden; background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.progress-bar::before {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 3px; background: var(--felt);
+  animation: indeterminate 1.1s ease-in-out infinite;
+}
+@keyframes indeterminate { from { left: -40%; } to { left: 100%; } }
+.load-track { width: 220px; height: 6px; border-radius: 6px; background: var(--surface-3); overflow: hidden; }
+.load-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--felt); transition: width .5s ease; }

@@ -221,7 +221,12 @@
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <canvas id="confetti" class="confetti"></canvas>
   <div id="conn-banner" class="conn-banner" hidden>Reconnecting…</div>
-  <div id="loading" class="loading" hidden><div class="spinner"></div><span id="loading-text">Connecting…</span></div>
+  <div id="progress-bar" class="progress-bar" hidden></div>
+  <div id="loading" class="loading" hidden>
+    <div class="spinner"></div>
+    <span id="loading-text">Connecting…</span>
+    <div class="load-track"><i id="load-fill"></i></div>
+  </div>
 
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script type="module" src="app.js"></script>
