@@ -279,6 +279,8 @@ async function enterRoom(id, { create = null, profile = null } = {}) {
   rt = null;
   state = null;
   prevState = null;
+  rawView = null;
+  offlineSince.clear();
   roomId = id;
   $('#landing').hidden = true;
   $('#room').hidden = false;
@@ -309,11 +311,46 @@ async function enterRoom(id, { create = null, profile = null } = {}) {
   action('join', p);
 }
 
+// People who leave disappear from the table. They're only hidden (not removed from the room), so
+// they get their seat back when they return, and a short grace period keeps a page refresh from
+// making their card blink out and back.
+const OFFLINE_GRACE_MS = 8000;
+const offlineSince = new Map();
+let rawView = null;
+let visibilityTimer = null;
+
+function withVisiblePlayers(view) {
+  const now = Date.now();
+  const wasConnected = new Set((state?.allPlayers ?? []).filter((p) => p.connected).map((p) => p.id));
+  let nextExpiry = Infinity;
+  for (const p of view.players) {
+    if (p.connected) offlineSince.delete(p.id);
+    else if (!offlineSince.has(p.id)) offlineSince.set(p.id, wasConnected.has(p.id) ? now : 0);
+  }
+  const players = view.players.filter((p) => {
+    if (p.connected || p.id === view.me) return true;
+    const expires = offlineSince.get(p.id) + OFFLINE_GRACE_MS;
+    if (expires > now) nextExpiry = Math.min(nextExpiry, expires);
+    return expires > now;
+  });
+  clearTimeout(visibilityTimer);
+  if (nextExpiry < Infinity) {
+    visibilityTimer = setTimeout(() => {
+      if (!rawView) return;
+      prevState = state;
+      state = withVisiblePlayers(rawView);
+      render();
+    }, nextExpiry - now + 50);
+  }
+  return { ...view, allPlayers: view.players, players };
+}
+
 function onState(view) {
   $('#conn-banner').hidden = true;
   setBusy(false);
+  rawView = view;
   prevState = state;
-  state = view;
+  state = withVisiblePlayers(view);
   clockOffset = state.serverNow - Date.now();
   render();
 }
@@ -483,7 +520,7 @@ function renderTableCenter() {
   const voters = state.players.filter((p) => p.role === 'voter' && p.connected);
   const voted = state.players.filter((p) => p.voted).length;
   const ctl = canControl();
-  const host = state.players.find((p) => p.id === state.hostId);
+  const host = state.allPlayers.find((p) => p.id === state.hostId);
   const hostAway = host && !host.connected && !isHost();
   const takeOver = hostAway ? '<button class="btn btn-sm sub" data-action="claim-host">Facilitator is away — take over</button>' : '';
 
