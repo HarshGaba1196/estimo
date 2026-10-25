@@ -2,7 +2,7 @@
 
 Real-time planning poker for agile teams. It runs entirely in the browser: no server, no accounts, no build step.
 
-**Play:** https://harshgaba1196.github.io/estimo/
+**Play:** https://xoftverse.com/estimo/
 
 ## How it works
 
