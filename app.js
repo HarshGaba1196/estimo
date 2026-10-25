@@ -397,13 +397,10 @@ function seatOrder() {
 }
 
 function renderSeats() {
-  const wrap = $('.table-wrap');
   const seats = $('#seats');
   const players = seatOrder();
   const stats = state.revealed ? computeStats(state) : null;
   const outlierIds = new Set(stats?.outliers?.map((p) => p.id) ?? []);
-  const grid = wrap.clientWidth < 620 || players.length > 14;
-  wrap.classList.toggle('grid-mode', grid);
 
   const existing = new Map($$('.seat', seats).map((el) => [el.dataset.id, el]));
   const prevPlayers = new Map((prevState?.players ?? []).map((p) => [p.id, p]));
@@ -419,9 +416,6 @@ function renderSeats() {
     }
     existing.delete(p.id);
     seats.append(el); // keeps DOM order in sync with seat order
-    const angle = Math.PI / 2 + (i * 2 * Math.PI) / Math.max(players.length, 1);
-    el.style.left = `${50 + 43 * Math.cos(angle)}%`;
-    el.style.top = `${50 + 39 * Math.sin(angle)}%`;
     const wasVoted = prevPlayers.get(p.id)?.voted;
     el.classList.toggle('voted', p.voted);
     el.classList.toggle('revealed', state.revealed);
@@ -457,19 +451,19 @@ function renderTableCenter() {
   if (state.revealed) {
     const s = computeStats(state);
     let headline;
-    if (s.empty) headline = '<span class="big">No votes</span>Nobody picked a card';
+    if (s.empty) headline = '<span class="big">—</span>Nobody picked a card';
     else if (s.consensus) headline = `<span class="big">🎉 ${esc(s.counted[0].vote)}</span>Everyone agrees!`;
     else if (s.numericDeck) headline = `<span class="big">${fmt(s.avg)}</span>average · suggested ${esc(s.suggested)}`;
     else headline = `<span class="big">${esc(s.suggested)}</span>median estimate`;
     status.innerHTML = headline;
     actions.innerHTML = ctl
       ? `<button class="btn" data-action="reset">↻ Re-vote</button>${takeOver}`
-      : `<span class="muted-light">Waiting for the facilitator…</span>${takeOver}`;
+      : `<span>Waiting for the facilitator</span>${takeOver}`;
     return;
   }
 
   if (state.players.length <= 1) {
-    status.innerHTML = '<span class="big">Invite your team</span>Share the link to get everyone around the table';
+    status.innerHTML = '<span class="big">👋</span>Invite your team: share the link to get everyone in';
     actions.innerHTML = `<button class="btn" data-action="copy-link">⧉ Copy invite link</button>${ctl && voted ? '<button class="btn sub" data-action="reveal">Reveal</button>' : ''}`;
     return;
   }
@@ -479,7 +473,7 @@ function renderTableCenter() {
   status.innerHTML = `<span class="big">${voted} / ${total}</span>${voted === total && total ? 'Everyone has voted!' : 'votes in'}
     <div class="progress"><i style="width:${pct}%"></i></div>`;
   if (!ctl) {
-    actions.innerHTML = `<span>Waiting for the facilitator to reveal…</span>${takeOver}`;
+    actions.innerHTML = `<span>Waiting for the facilitator to reveal</span>${takeOver}`;
     return;
   }
   const waiting = voters.some((p) => !p.voted);
@@ -495,15 +489,28 @@ function renderTableCenter() {
 function renderResults() {
   const el = $('#results');
   if (!state.revealed) {
-    el.hidden = true;
-    resultsKey = '';
+    const voters = state.players.filter((p) => p.role === 'voter' && p.connected);
+    const voted = state.players.filter((p) => p.voted).length;
+    const key = `wait:${state.round}:${voted}/${voters.length}`;
+    if (key === resultsKey) return;
+    resultsKey = key;
+    el.classList.add('idle');
+    el.classList.remove('live');
+    el.innerHTML = `
+      <div class="results-head"><h3>Results</h3><span class="spacer"></span><span class="muted">Round ${state.round}</span></div>
+      <div class="results-wait">
+        <span class="icon">🂠</span>
+        <b>Cards are face down</b>
+        <span>${voted} of ${Math.max(voters.length, voted)} voted. Results show up here the moment cards are revealed.</span>
+      </div>`;
     return;
   }
   const key = JSON.stringify([state.round, state.players.map((p) => [p.id, p.vote, p.name, p.avatar]), canControl(), state.deck.cards]);
   if (key === resultsKey) return;
   resultsKey = key;
   const s = computeStats(state);
-  el.hidden = false;
+  el.classList.remove('idle');
+  el.classList.add('live');
 
   const verdict = s.empty ? '' : s.consensus
     ? '<span class="verdict good">Consensus</span>'
@@ -541,10 +548,8 @@ function renderResults() {
   const saveCards = state.deck.cards.filter((c) => !SPECIAL.includes(c));
   const save = canControl() ? `
     <div class="save-row">
-      <span class="lbl">Save estimate:</span>
+      <span class="lbl">Save estimate <span class="muted">(moves to the next story)</span></span>
       ${saveCards.map((c) => `<button class="save-chip ${c === s.suggested ? 'suggested' : ''}" data-save="${esc(c)}" title="Save ${esc(c)} and move to the next story">${esc(c)}</button>`).join('')}
-      <span class="spacer"></span>
-      <button class="btn btn-sm" data-action="reset">↻ Re-vote</button>
     </div>` : '';
 
   el.innerHTML = `
@@ -669,7 +674,7 @@ function flyReaction({ from, to, emoji }) {
       easing: 'ease-out',
     }).onfinish = () => el.remove();
     const seat = $(`.seat[data-id="${CSS.escape(to)}"]`);
-    seat?.animate([{ transform: 'translate(-50%,-50%) rotate(0)' }, { transform: 'translate(-50%,-50%) rotate(-8deg)' }, { transform: 'translate(-50%,-50%) rotate(8deg)' }, { transform: 'translate(-50%,-50%) rotate(0)' }], { duration: 350 });
+    seat?.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-8deg)' }, { transform: 'rotate(8deg)' }, { transform: 'rotate(0)' }], { duration: 350 });
   };
 }
 
@@ -915,7 +920,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-new ResizeObserver(() => state && renderSeats()).observe($('.table-wrap'));
 window.addEventListener('popstate', route);
 
 // ---------------- Boot ----------------

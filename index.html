@@ -118,15 +118,18 @@
           </div>
         </div>
 
-        <section class="table-wrap">
-          <div id="seats" class="seats"></div>
-          <div class="table" id="table">
-            <div class="table-status" id="table-status"></div>
-            <div class="table-actions" id="table-actions"></div>
+        <div class="board">
+          <div class="board-left">
+            <section class="status-bar panel" id="table">
+              <div class="table-status" id="table-status"></div>
+              <div class="table-actions" id="table-actions"></div>
+            </section>
+            <section class="seats-wrap panel" aria-label="Players">
+              <div id="seats" class="seats"></div>
+            </section>
           </div>
-        </section>
-
-        <section id="results" class="results panel" hidden></section>
+          <section id="results" class="results panel idle" aria-live="polite"></section>
+        </div>
       </main>
     </div>
 
