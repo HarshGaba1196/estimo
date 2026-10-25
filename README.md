@@ -1,35 +1,53 @@
 # Estimo — Planning Poker
 
-Real-time planning poker for agile teams. No sign-up, no dependencies, no build step.
+Real-time planning poker for agile teams. It runs entirely in the browser: no server, no accounts, no build step.
 
-```bash
-node server.js        # http://localhost:3000  (PORT=8080 node server.js to change)
-```
+**Play:** https://harshgaba1196.github.io/estimo/
 
-Requires Node 18+.
+## How it works
+
+1. Open the page, enter your name and click **Create room**.
+2. Click **Invite** to copy the link and send it to your team.
+3. They open the link, pick a name and avatar, and they're at the table.
+
+Messages travel over free public MQTT brokers (EMQX, with HiveMQ as a fallback) on secure WebSockets. Every message is encrypted in the browser with a key derived from the room code, and topic names are a hash of the code, so the broker only sees scrambled data.
+
+One tab in each room acts as the **hub**: it applies the room rules (`room.js`) and publishes the room state. Every other tab keeps a copy, so if the hub's tab closes, another player's tab takes over within a couple of seconds and nothing is lost. The state is also stored on the broker as a retained (encrypted) message, so reopening a room link after everyone has left brings the room back.
 
 ## Features
 
-- **Instant rooms** — 6-character room codes and shareable `/r/CODE` links; rejoining keeps your seat.
 - **Poker table** — players sit around a table, cards drop in as they vote and flip over on reveal. Phones and big teams get a grid layout.
 - **Decks** — Fibonacci, Modified Fibonacci, T-shirt, Powers of 2, Hours, or a custom deck. Every deck has `?` and `☕` cards.
-- **Results** — average, median, agreement %, a suggested card, a vote distribution chart, highlighted outliers ("lowest and highest voters, talk it out"), and confetti when everyone agrees.
-- **Story backlog** — paste many stories at once (one per line; bullets and numbering are stripped). Reorder, rename, re-estimate. Saving an estimate moves to the next story. Running total of points, CSV export with each story's final votes.
-- **Facilitation** — countdown timers that reveal at zero, auto-reveal when everyone has voted, nudges (a sound plus a shaking hand for whoever hasn't voted), observer role, hand off or claim the facilitator role, remove players. Facilitator role passes to someone else automatically if the facilitator stays disconnected for 45 s.
-- **Permissions** — let anyone run the round, or only the facilitator.
+- **Results** — average, median, agreement %, a suggested card, a vote distribution chart, highlighted outliers, and confetti when everyone agrees.
+- **Story backlog** — paste many stories at once (one per line). Reorder, rename, re-estimate. Saving an estimate moves to the next story. Running point total and CSV export.
+- **Facilitation** — countdown timers that reveal at zero, auto-reveal when everyone has voted, nudges, observer role, hand off or claim the facilitator role, remove players. The facilitator role passes to someone else if the facilitator is away for 45 s.
 - **Reactions** — click a teammate to throw an emoji across the table.
 - **Keyboard first** — `1`–`9`/`0` vote, `←`/`→` move between cards, `Esc` withdraw, `R` reveal, `N` re-vote, `T` timer, `S` stories, `?` help.
-- **Light and dark themes**, follows your system setting by default.
-- **Persistence** — rooms are saved to `data/rooms.json` and survive restarts; rooms nobody touches for 7 days are removed.
+- **Light and dark themes**, following your system setting by default.
 
-## Architecture
+## Files
 
-| Piece | How |
+| File | What it does |
 | --- | --- |
-| Server | `server.js`: plain `node:http`, in-memory rooms with debounced JSON persistence |
-| Real-time | Server-Sent Events (`GET /api/rooms/:id/events`), each client gets its own view (votes stay hidden until reveal) |
-| Actions | `POST /api/rooms/:id/action` with `{ token, type, ... }`, checked on the server |
-| Identity | Each player gets a secret token (kept in localStorage) plus a public id; tokens are never broadcast |
-| Client | `public/`: vanilla ES modules, keyed DOM updates for the seat animations |
+| `index.html`, `styles.css` | Page and styles |
+| `app.js` | UI: rendering, dialogs, keyboard shortcuts, stats |
+| `room.js` | Room rules (votes, stories, timers, permissions) |
+| `realtime.js` | Encrypted MQTT transport, presence, hub election and takeover |
 
-To deploy behind a proxy, turn off response buffering for `/api/rooms/*/events` (nginx: `proxy_buffering off;`).
+## Run locally
+
+Any static file server works:
+
+```bash
+python3 -m http.server 4173
+```
+
+Then open http://localhost:4173. To test with two people on one machine, open one tab on `localhost` and another on `127.0.0.1` so they get separate storage.
+
+## Deploy
+
+GitHub Pages: repo **Settings → Pages → Build and deployment → Deploy from a branch → `main` / root**.
+
+## Privacy note
+
+Votes are hidden in the UI until reveal, but anyone who has the room code can decrypt the room's traffic, so a teammate inspecting network messages could see votes early. Treat the room link like a meeting link.

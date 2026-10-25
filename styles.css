@@ -497,3 +497,6 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 }
 .muted-light { opacity: .85; font-size: 14px; }
 .room:not(.ready) .room-body, .room:not(.ready) .hand-wrap { visibility: hidden; }
+.loading { position: fixed; inset: 0; z-index: 85; display: grid; place-content: center; justify-items: center; gap: 14px; background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(4px); font-weight: 600; color: var(--text-2); }
+.spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

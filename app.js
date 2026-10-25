@@ -1,4 +1,6 @@
-// Estimo — planning poker client. No framework, no build step.
+// Estimo — planning poker client. No framework, no build step, no server.
+import { DECKS, REACTIONS, AVATARS, createRoom, roomCode, uid } from './room.js';
+import { openRoom } from './realtime.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -10,33 +12,18 @@ const LS = {
 };
 const SPECIAL = ['?', '☕'];
 
-let META = null;
+const META = { decks: DECKS, reactions: REACTIONS, avatars: AVATARS };
 let state = null;
 let prevState = null;
-let session = null; // { roomId, token }
-let es = null;
+let rt = null; // realtime room controller
+let roomId = null;
 let clockOffset = 0;
 let selectedHandIndex = -1;
 let resultsKey = '';
-let reconnectTimer = null;
 
-// ---------------- API ----------------
-async function api(path, body) {
-  const opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
-  const res = await fetch(path, opts);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
-  return data;
-}
-
-async function action(type, payload = {}) {
-  if (!session) return;
-  try {
-    await api(`/api/rooms/${session.roomId}/action`, { token: session.token, type, ...payload });
-  } catch (err) {
-    toast(err.message, 'error');
-    if (err.status === 401) leaveToLanding();
-  }
+// ---------------- Actions ----------------
+function action(type, payload = {}) {
+  rt?.act(type, payload);
 }
 
 // ---------------- Toasts / helpers ----------------
@@ -79,7 +66,9 @@ function toggleTheme() {
 const me = () => state?.players.find((p) => p.id === state.me);
 const isHost = () => state && state.hostId === state.me;
 const canControl = () => state && (isHost() || state.settings.anyoneCanControl);
-const inviteUrl = () => `${location.origin}/r/${state.id}`;
+const roomUrl = (id) => `${location.origin}${location.pathname}?room=${id}${rt?.brokerIndex ? `&b=${rt.brokerIndex}` : ''}`;
+const inviteUrl = () => roomUrl(state.id);
+const pidKey = (id) => `estimo:room:${id}`;
 
 // ---------------- Stats ----------------
 function toNum(v) {
@@ -170,7 +159,9 @@ $('#create-form').addEventListener('submit', async (e) => {
   const btn = $('button[type=submit]', f);
   btn.disabled = true;
   try {
-    const { id } = await api('/api/rooms', {
+    const id = roomCode();
+    const room = createRoom({
+      id,
       name: f.elements.roomName.value,
       deck: f.elements.deck.value,
       customCards: f.elements.customCards.value,
@@ -178,9 +169,8 @@ $('#create-form').addEventListener('submit', async (e) => {
     });
     const profile = { ...LS.get('estimo:profile', {}), name: f.elements.name.value.trim() };
     LS.set('estimo:profile', profile);
-    await joinRoom(id, { ...profile, role: 'voter' });
-    history.pushState({}, '', `/r/${id}`);
-    await enterRoom(id);
+    history.pushState({}, '', `?room=${id}`);
+    await enterRoom(id, { create: room, profile: { ...profile, role: 'voter' } });
   } catch (err) {
     toast(err.message, 'error');
   } finally {
@@ -192,23 +182,11 @@ $('#join-code-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const code = e.currentTarget.elements.code.value.trim().toUpperCase();
   if (!/^[A-Z0-9]{6}$/.test(code)) return toast('Room codes are 6 characters', 'error');
-  history.pushState({}, '', `/r/${code}`);
+  history.pushState({}, '', `?room=${code}`);
   enterRoom(code);
 });
 
 // ---------------- Joining ----------------
-async function joinRoom(roomId, { name, avatar, role }, resumeToken) {
-  const stored = LS.get(`estimo:room:${roomId}`, null);
-  const res = await api(`/api/rooms/${roomId}/join`, {
-    name, avatar, role,
-    token: resumeToken ?? stored?.token,
-    resume: Boolean(resumeToken),
-  });
-  LS.set(`estimo:room:${roomId}`, { token: res.token });
-  session = { roomId, token: res.token };
-  return res;
-}
-
 function buildAvatarGrid(form, selected) {
   const grid = $('[data-avatar-grid]', form);
   form.dataset.avatar = selected || META.avatars[Math.floor(Math.random() * META.avatars.length)];
@@ -223,119 +201,117 @@ function buildAvatarGrid(form, selected) {
   };
 }
 
-function askToJoin(roomId, info) {
+function askToJoin(view) {
   return new Promise((resolve) => {
     const dlg = $('#join-dialog');
     const form = $('#join-form');
     const profile = LS.get('estimo:profile', {});
-    $('#join-room-name').textContent = info.name;
-    $('#join-room-meta').textContent = info.players ? `${info.players} ${info.players === 1 ? 'person is' : 'people are'} here` : 'Be the first one in';
+    const count = view?.players.length ?? 0;
+    $('#join-room-name').textContent = view?.name ?? 'room';
+    $('#join-room-meta').textContent = count ? `${count} ${count === 1 ? 'person is' : 'people are'} here` : 'Be the first one in';
     form.elements.name.value = profile.name || '';
     form.elements.role.value = profile.role || 'voter';
     buildAvatarGrid(form, profile.avatar);
     dlg.oncancel = (e) => e.preventDefault();
-    form.onsubmit = async (e) => {
+    form.onsubmit = (e) => {
       e.preventDefault();
       const p = { name: form.elements.name.value.trim(), avatar: form.dataset.avatar, role: form.elements.role.value };
-      try {
-        LS.set('estimo:profile', p);
-        await joinRoom(roomId, p);
-        dlg.close();
-        resolve();
-      } catch (err) {
-        toast(err.message, 'error');
-      }
+      LS.set('estimo:profile', p);
+      dlg.close();
+      resolve(p);
     };
     dlg.showModal();
   });
 }
 
-async function enterRoom(roomId) {
-  roomId = roomId.toUpperCase();
-  let info;
-  try {
-    info = await api(`/api/rooms/${roomId}`);
-  } catch {
-    toast('That room does not exist (or has expired)', 'error');
-    history.replaceState({}, '', '/');
-    return showLanding();
-  }
-  const stored = LS.get(`estimo:room:${roomId}`, null);
-  let resumed = false;
-  if (stored?.token) {
-    try {
-      await joinRoom(roomId, {}, stored.token);
-      resumed = true;
-    } catch {
-      LS.del(`estimo:room:${roomId}`);
-    }
-  }
-  $('#landing').hidden = true;
-  $('#room').hidden = false;
-  if (!resumed) await askToJoin(roomId, info);
-  connect();
+const NET_ERRORS = {
+  notfound: "Couldn't find that room. Check the code, or ask for a fresh invite link.",
+  broker: "Couldn't reach the connection servers. Check your internet and try again.",
+  lib: "Couldn't load the connection library. Check your internet and reload.",
+  crypto: 'This browser cannot encrypt messages. Open the page over HTTPS.',
+  taken: 'Room code clash. Please try again.',
+};
+
+function showLoading(text) {
+  $('#loading-text').textContent = text;
+  $('#loading').hidden = false;
 }
 
-function connect() {
-  es?.close();
-  clearTimeout(reconnectTimer);
-  let gotState = false;
-  es = new EventSource(`/api/rooms/${session.roomId}/events?token=${encodeURIComponent(session.token)}`);
-  es.addEventListener('state', (e) => {
-    gotState = true;
-    $('#conn-banner').hidden = true;
-    prevState = state;
-    state = JSON.parse(e.data);
-    clockOffset = state.serverNow - Date.now();
-    render();
-  });
-  es.addEventListener('reaction', (e) => flyReaction(JSON.parse(e.data)));
-  es.addEventListener('toast', (e) => toast(JSON.parse(e.data).text));
-  es.addEventListener('nudge', (e) => {
-    const { from } = JSON.parse(e.data);
-    toast(`👋 ${from} is waiting for your vote`);
-    beep();
-    const hand = $('#hand');
-    hand.classList.remove('shake');
-    void hand.offsetWidth;
-    hand.classList.add('shake');
-  });
-  es.addEventListener('kicked', () => {
-    es.close();
-    LS.del(`estimo:room:${session.roomId}`);
-    toast('You were removed from the room', 'error');
-    leaveToLanding();
-  });
-  es.onerror = () => {
-    $('#conn-banner').hidden = false;
-    if (es.readyState === EventSource.CLOSED) {
-      // Hard failure (server restarted, token revoked…): re-validate then reconnect.
-      reconnectTimer = setTimeout(async () => {
-        try {
-          await joinRoom(session.roomId, {}, session.token);
-          connect();
-        } catch (err) {
-          if (err.status === 404 || err.status === 401) {
-            LS.del(`estimo:room:${session.roomId}`);
-            toast(err.status === 404 ? 'This room no longer exists' : 'Your session expired — please rejoin', 'error');
-            if (err.status === 404) leaveToLanding();
-            else enterRoom(session.roomId);
-          } else {
-            es.onerror();
-          }
-        }
-      }, gotState ? 1500 : 3000);
+async function enterRoom(id, { create = null, profile = null } = {}) {
+  id = id.toUpperCase();
+  rt?.close();
+  rt = null;
+  state = null;
+  prevState = null;
+  roomId = id;
+  $('#landing').hidden = true;
+  $('#room').hidden = false;
+  $('#room').classList.remove('ready');
+  showLoading(create ? 'Creating your room…' : 'Finding the room…');
+  const broker = Number(new URLSearchParams(location.search).get('b')) || 0;
+  try {
+    rt = await openRoom({ code: id, create, broker, onState, onEvent, onStatus });
+  } catch (err) {
+    $('#loading').hidden = true;
+    toast(NET_ERRORS[err.type] ?? err.message, 'error');
+    history.replaceState({}, '', location.pathname);
+    return showLanding();
+  }
+  $('#loading').hidden = true;
+  history.replaceState({}, '', roomUrl(id).slice(location.origin.length));
+
+  const view = rt.view();
+  const stored = LS.get(pidKey(id), null);
+  if (stored?.pid && view?.players.some((p) => p.id === stored.pid)) {
+    rt.setPid(stored.pid);
+    return;
+  }
+  const p = profile ?? (await askToJoin(view));
+  const pid = stored?.pid ?? uid();
+  LS.set(pidKey(id), { pid });
+  rt.setPid(pid);
+  rt.act('join', p);
+}
+
+function onState(view) {
+  $('#conn-banner').hidden = true;
+  prevState = state;
+  state = view;
+  clockOffset = state.serverNow - Date.now();
+  render();
+}
+
+function onEvent(type, data) {
+  switch (type) {
+    case 'toast': return toast(data.text);
+    case 'error': return toast(data.text, 'error');
+    case 'reaction': return flyReaction(data);
+    case 'nudge': {
+      toast(`👋 ${data.from} is waiting for your vote`);
+      beep();
+      const hand = $('#hand');
+      hand.classList.remove('shake');
+      void hand.offsetWidth;
+      hand.classList.add('shake');
+      return;
     }
-  };
+    case 'kicked':
+      LS.del(pidKey(roomId));
+      toast('You were removed from the room', 'error');
+      return leaveToLanding();
+  }
+}
+
+function onStatus(connected) {
+  $('#conn-banner').hidden = connected;
 }
 
 function leaveToLanding() {
   $('#room').classList.remove('ready');
-  es?.close();
-  es = null;
+  rt?.close();
+  rt = null;
   state = null;
-  session = null;
-  history.pushState({}, '', '/');
+  history.pushState({}, '', location.pathname);
   showLanding();
 }
 
@@ -898,8 +874,9 @@ document.addEventListener('click', async (e) => {
     case 'leave':
       if (!confirm('Leave this room?')) return;
       $('#profile-dialog').close();
-      await action('leave');
-      LS.del(`estimo:room:${session.roomId}`);
+      action('leave');
+      await rt?.flush();
+      LS.del(pidKey(roomId));
       return leaveToLanding();
   }
 });
@@ -943,16 +920,16 @@ window.addEventListener('popstate', route);
 
 // ---------------- Boot ----------------
 function route() {
-  const m = location.pathname.match(/^\/r\/([A-Za-z0-9]{6})\/?$/);
-  if (m) enterRoom(m[1]);
-  else {
-    es?.close();
+  const code = new URLSearchParams(location.search).get('room');
+  if (code && /^[A-Za-z0-9]{6}$/.test(code)) {
+    if (code.toUpperCase() !== roomId || !rt) enterRoom(code);
+  } else {
+    rt?.close();
+    rt = null;
+    roomId = null;
     state = null;
     showLanding();
   }
 }
 
-(async function init() {
-  META = await api('/api/meta');
-  route();
-})();
+route();

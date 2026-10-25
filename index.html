@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Estimo — Planning Poker</title>
   <meta name="description" content="Fast, beautiful, real-time planning poker for agile teams." />
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="styles.css" />
   <script>
     try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
   </script>
@@ -18,7 +18,7 @@
   <!-- ============ LANDING ============ -->
   <main id="landing" class="landing" hidden>
     <header class="landing-nav">
-      <a class="brand" href="/"><span class="brand-mark">E</span>Estimo</a>
+      <a class="brand" href="./"><span class="brand-mark">E</span>Estimo</a>
       <button class="icon-btn" data-action="toggle-theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
     </header>
 
@@ -75,7 +75,7 @@
   <!-- ============ ROOM ============ -->
   <div id="room" class="room" hidden>
     <header class="topbar">
-      <a class="brand" href="/"><span class="brand-mark">E</span><span class="brand-text">Estimo</span></a>
+      <a class="brand" href="./"><span class="brand-mark">E</span><span class="brand-text">Estimo</span></a>
       <div class="room-title">
         <h1 id="room-name" title="Room name"></h1>
         <button id="copy-link" class="chip" title="Copy invite link"><span id="room-code"></span> <span class="chip-icon">⧉</span> Invite</button>
@@ -218,7 +218,9 @@
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <canvas id="confetti" class="confetti"></canvas>
   <div id="conn-banner" class="conn-banner" hidden>Reconnecting…</div>
+  <div id="loading" class="loading" hidden><div class="spinner"></div><span id="loading-text">Connecting…</span></div>
 
-  <script type="module" src="/app.js"></script>
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
