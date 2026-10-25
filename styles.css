@@ -228,7 +228,7 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 .me-btn {
   display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface); font-weight: 600; font-size: 14px; max-width: 180px;
+  border: 1px solid var(--border); background: var(--surface); font-weight: 600; font-size: 14px; max-width: 280px;
 }
 .me-btn .av { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-size: 17px; flex: none; }
 .me-btn .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -300,7 +300,8 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 
 /* Players */
 .seats-wrap { padding: 20px 16px; }
-.seats { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 14px; }
+.seats { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 18px 14px; }
+.seats:empty::before { content: 'No voters yet'; color: var(--muted); font-size: 14px; padding: 12px; }
 .seat { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; min-width: 72px; max-width: 170px; }
 .seat-card {
   width: 54px; height: 76px; perspective: 600px; position: relative;
@@ -320,7 +321,6 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
 }
 .seat.revealed.voted .flip { transform: rotateY(180deg); }
 .seat.revealed:not(.voted) .seat-card { opacity: .35; }
-.seat.observer .seat-card { visibility: hidden; height: 0; }
 .seat.outlier .seat-card .face { border-color: var(--warn); color: var(--warn); }
 .seat.just-voted .seat-card { animation: drop .45s cubic-bezier(.3, 1.6, .5, 1); }
 @keyframes drop { from { transform: translateY(-14px) scale(1.15); } }
@@ -530,9 +530,15 @@ legend { font-weight: 600; font-size: 13px; color: var(--text-2); margin-bottom:
   letter-spacing: .06em; text-transform: uppercase; line-height: 16px; white-space: nowrap;
   background: var(--accent); color: var(--accent-text);
 }
-.role-tag.observer { background: var(--surface-3); color: var(--text-2); }
 .role-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: -2px; }
 .role-tags:not(:has(.role-tag:not([hidden]))) { display: none; }
-.me-btn .role-tag + .role-tag { margin-left: 4px; }
+
 .seats.compact .role-tag { font-size: 9px; padding: 0 6px; }
 @media (max-width: 640px) { .me-btn .role-tag { display: none; } }
+
+/* Observers: one quiet line under the voters */
+.observers { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.observers-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.observer-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 200px; }
+.observer-chip .seat-name { box-shadow: none; background: var(--surface-2); }
+.observer-chip.me .seat-name { background: var(--accent-soft); }

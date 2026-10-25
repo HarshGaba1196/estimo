@@ -412,7 +412,7 @@ function renderHeader() {
   $('#room-code').textContent = state.id;
   $('#settings-btn').hidden = !isHost();
   const m = me();
-  $('#me-btn').innerHTML = m ? `<span class="av">${m.avatar}</span><span class="nm">${esc(m.name)}</span>${isHost() ? '<span class="role-tag">Facilitator</span>' : ''}${m.role === 'observer' ? '<span class="role-tag observer">Observer</span>' : ''}` : '';
+  $('#me-btn').innerHTML = m ? `<span class="av">${m.avatar}</span><span class="nm">${esc(m.name)}</span>${isHost() ? '<span class="role-tag">Facilitator</span>' : ''}` : '';
   tickTimer();
 }
 
@@ -474,7 +474,10 @@ function seatOrder() {
 
 function renderSeats() {
   const seats = $('#seats');
-  const players = seatOrder();
+  const everyone = seatOrder();
+  // Observers don't vote, so they get a small "Observing" line instead of a card slot.
+  const players = everyone.filter((p) => p.role !== 'observer');
+  renderObservers(everyone.filter((p) => p.role === 'observer'));
   seats.classList.toggle('compact', players.length > 12);
   const stats = state.revealed ? computeStats(state) : null;
   const outlierIds = new Set(stats?.outliers?.map((p) => p.id) ?? []);
@@ -490,7 +493,7 @@ function renderSeats() {
       el.innerHTML = `
         <div class="seat-card"><div class="flip"><div class="back"></div><div class="face"></div></div></div>
         <button class="seat-name" type="button"><span class="av"></span><span class="nm"></span></button>
-        <span class="role-tags"><span class="role-tag host-tag" hidden>Facilitator</span><span class="role-tag observer" hidden>Observer</span></span>`;
+        <span class="role-tags"><span class="role-tag host-tag" hidden>Facilitator</span></span>`;
     }
     existing.delete(p.id);
     seats.append(el); // keeps DOM order in sync with seat order
@@ -511,11 +514,24 @@ function renderSeats() {
     $('.av', el).textContent = p.avatar;
     $('.nm', el).textContent = p.name;
     $('.host-tag', el).hidden = p.id !== state.hostId;
-    $('.role-tag.observer', el).hidden = p.role !== 'observer';
     el.classList.toggle('host', p.id === state.hostId);
     $('.seat-name', el).title = `${p.name}${p.id === state.hostId ? ' (facilitator)' : ''}${p.role === 'observer' ? ' · observer' : ''}${p.connected ? '' : ' · offline'}`;
   });
   existing.forEach((el) => el.remove());
+}
+
+function renderObservers(observers) {
+  const box = $('#observers');
+  box.hidden = !observers.length;
+  box.innerHTML = observers.length
+    ? `<span class="observers-label">Observing</span>${observers
+        .map((p) => `
+          <div class="seat observer-chip ${p.id === state.me ? 'me' : ''} ${p.connected ? '' : 'offline'}" data-id="${esc(p.id)}">
+            <button class="seat-name" type="button" title="${esc(p.name)}${p.id === state.hostId ? ' (facilitator)' : ''}"><span class="av">${p.avatar}</span><span class="nm">${esc(p.name)}</span></button>
+            ${p.id === state.hostId ? '<span class="role-tag">Facilitator</span>' : ''}
+          </div>`)
+        .join('')}`
+    : '';
 }
 
 function renderTableCenter() {
