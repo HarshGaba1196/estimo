@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estimo — Planning Poker</title>
+  <meta name="description" content="Fast, beautiful, real-time planning poker for agile teams." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script>
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  </script>
+</head>
+<body>
+  <!-- ============ LANDING ============ -->
+  <main id="landing" class="landing" hidden>
+    <header class="landing-nav">
+      <a class="brand" href="/"><span class="brand-mark">E</span>Estimo</a>
+      <button class="icon-btn" data-action="toggle-theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="pill">Free · No sign-up · Real-time</span>
+        <h1>Planning poker your team will <em>actually</em> enjoy.</h1>
+        <p>Spin up a room in two seconds, share the link, and estimate together. Story queues, smart results, timers, reactions and exports — all built in.</p>
+        <ul class="feature-list">
+          <li><b>Story backlog</b> — paste a list, estimate one by one, export to CSV</li>
+          <li><b>Smart results</b> — average, median, agreement score and a suggested card</li>
+          <li><b>Timers &amp; auto-reveal</b> — keep sessions moving</li>
+          <li><b>Reactions &amp; nudges</b> — throw emoji at your teammates</li>
+          <li><b>Keyboard first</b> — vote with number keys, reveal with <kbd>R</kbd></li>
+        </ul>
+      </div>
+
+      <div class="hero-forms">
+        <form id="create-form" class="panel form-card">
+          <h2>Start a session</h2>
+          <label>Session name
+            <input name="roomName" maxlength="60" placeholder="Sprint 42 refinement" />
+          </label>
+          <label>Your name
+            <input name="name" maxlength="30" required placeholder="Alex" autocomplete="nickname" />
+          </label>
+          <fieldset>
+            <legend>Deck</legend>
+            <div id="deck-options" class="deck-options"></div>
+            <input name="customCards" class="custom-cards" placeholder="e.g. 1, 2, 3, 5, 8, ?" hidden />
+          </fieldset>
+          <label class="check"><input type="checkbox" name="autoReveal" /> Auto-reveal when everyone has voted</label>
+          <button class="btn btn-primary btn-lg" type="submit">Create room →</button>
+        </form>
+
+        <form id="join-code-form" class="panel form-card compact">
+          <h2>Have a room code?</h2>
+          <div class="row">
+            <input name="code" maxlength="6" placeholder="ABC123" class="code-input" required />
+            <button class="btn" type="submit">Join</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="hero-preview" aria-hidden="true">
+      <div class="preview-cards">
+        <div class="pcard">1</div><div class="pcard">2</div><div class="pcard">3</div><div class="pcard up">5</div><div class="pcard">8</div><div class="pcard">13</div>
+      </div>
+    </section>
+    <footer class="landing-footer">Made for teams who'd rather ship than argue about points.</footer>
+  </main>
+
+  <!-- ============ ROOM ============ -->
+  <div id="room" class="room" hidden>
+    <header class="topbar">
+      <a class="brand" href="/"><span class="brand-mark">E</span><span class="brand-text">Estimo</span></a>
+      <div class="room-title">
+        <h1 id="room-name" title="Room name"></h1>
+        <button id="copy-link" class="chip" title="Copy invite link"><span id="room-code"></span> <span class="chip-icon">⧉</span> Invite</button>
+      </div>
+      <div class="topbar-actions">
+        <div id="timer" class="timer" hidden></div>
+        <button class="icon-btn" data-action="open-shortcuts" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">⌨</button>
+        <button class="icon-btn" data-action="toggle-theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
+        <button class="icon-btn" id="settings-btn" data-action="open-settings" title="Room settings" aria-label="Room settings">⚙</button>
+        <button class="me-btn" id="me-btn" data-action="open-profile" title="Your profile"></button>
+      </div>
+    </header>
+
+    <div class="room-body">
+      <aside class="sidebar panel" id="sidebar">
+        <div class="sidebar-head">
+          <h2>Stories <span id="story-count" class="muted"></span></h2>
+          <div class="sidebar-tools">
+            <button class="icon-btn sm" data-action="export-csv" title="Export CSV">⤓</button>
+            <button class="icon-btn sm sidebar-close" data-action="toggle-sidebar" title="Close">✕</button>
+          </div>
+        </div>
+        <form id="story-form" class="story-form">
+          <textarea name="titles" rows="2" placeholder="Add a story… (paste many, one per line)"></textarea>
+          <button class="btn btn-sm" type="submit">Add</button>
+        </form>
+        <ol id="story-list" class="story-list"></ol>
+        <div class="sidebar-foot">
+          <div><span class="muted">Estimated</span> <b id="stat-done">0/0</b></div>
+          <div><span class="muted">Total points</span> <b id="stat-total">0</b></div>
+        </div>
+      </aside>
+
+      <main class="stage">
+        <div class="stage-head">
+          <button class="btn btn-ghost btn-sm stories-toggle" data-action="toggle-sidebar">☰ Stories</button>
+          <div class="current-story">
+            <span class="eyebrow" id="story-eyebrow">Now estimating</span>
+            <h2 id="current-story-title"></h2>
+          </div>
+        </div>
+
+        <section class="table-wrap">
+          <div id="seats" class="seats"></div>
+          <div class="table" id="table">
+            <div class="table-status" id="table-status"></div>
+            <div class="table-actions" id="table-actions"></div>
+          </div>
+        </section>
+
+        <section id="results" class="results panel" hidden></section>
+      </main>
+    </div>
+
+    <footer class="hand-wrap">
+      <div class="hand-meta">
+        <span id="hand-hint" class="muted"></span>
+      </div>
+      <div id="hand" class="hand" role="radiogroup" aria-label="Your estimate"></div>
+    </footer>
+  </div>
+
+  <!-- ============ MODALS ============ -->
+  <dialog id="join-dialog" class="dialog">
+    <form method="dialog" id="join-form">
+      <h2>Join <span id="join-room-name"></span></h2>
+      <p class="muted" id="join-room-meta"></p>
+      <label>Your name
+        <input name="name" maxlength="30" required placeholder="Alex" autocomplete="nickname" />
+      </label>
+      <div class="field-label">Pick an avatar</div>
+      <div class="avatar-grid" data-avatar-grid></div>
+      <div class="field-label">Join as</div>
+      <div class="segmented">
+        <label><input type="radio" name="role" value="voter" checked /><span>🃏 Voter</span></label>
+        <label><input type="radio" name="role" value="observer" /><span>👀 Observer</span></label>
+      </div>
+      <button class="btn btn-primary btn-lg" value="join">Enter room</button>
+    </form>
+  </dialog>
+
+  <dialog id="profile-dialog" class="dialog">
+    <form method="dialog" id="profile-form">
+      <h2>Your profile</h2>
+      <label>Name <input name="name" maxlength="30" required /></label>
+      <div class="field-label">Avatar</div>
+      <div class="avatar-grid" data-avatar-grid></div>
+      <div class="field-label">Role</div>
+      <div class="segmented">
+        <label><input type="radio" name="role" value="voter" /><span>🃏 Voter</span></label>
+        <label><input type="radio" name="role" value="observer" /><span>👀 Observer</span></label>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-danger-ghost" type="button" data-action="leave">Leave room</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn btn-primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog" class="dialog">
+    <form method="dialog" id="settings-form">
+      <h2>Room settings</h2>
+      <label>Room name <input name="roomName" maxlength="60" /></label>
+      <fieldset>
+        <legend>Deck <span class="muted">(changing it resets the round)</span></legend>
+        <div id="settings-deck-options" class="deck-options"></div>
+        <input name="customCards" class="custom-cards" placeholder="e.g. 1, 2, 3, 5, 8, ?" hidden />
+      </fieldset>
+      <label class="check"><input type="checkbox" name="autoReveal" /> Auto-reveal when everyone has voted</label>
+      <label class="check"><input type="checkbox" name="anyoneCanControl" /> Anyone can reveal, reset and manage stories</label>
+      <label class="check"><input type="checkbox" name="allowChangeAfterReveal" /> Allow changing votes after reveal</label>
+      <div class="dialog-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn btn-primary" value="save">Save settings</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="shortcuts-dialog" class="dialog">
+    <form method="dialog">
+      <h2>Keyboard shortcuts</h2>
+      <dl class="shortcuts">
+        <dt><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd></dt><dd>Pick the 1st–10th card</dd>
+        <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Move between cards</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Withdraw your vote</dd>
+        <dt><kbd>R</kbd></dt><dd>Reveal cards</dd>
+        <dt><kbd>N</kbd></dt><dd>New round / re-vote</dd>
+        <dt><kbd>T</kbd></dt><dd>Start / stop timer</dd>
+        <dt><kbd>S</kbd></dt><dd>Toggle stories panel</dd>
+        <dt><kbd>?</kbd></dt><dd>Show this help</dd>
+      </dl>
+      <div class="dialog-actions"><span class="spacer"></span><button class="btn btn-primary">Got it</button></div>
+    </form>
+  </dialog>
+
+  <div id="popover" class="popover" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <canvas id="confetti" class="confetti"></canvas>
+  <div id="conn-banner" class="conn-banner" hidden>Reconnecting…</div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
